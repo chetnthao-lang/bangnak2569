@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คชื่อหน้าเสาธง - โรงเรียนบางมูลนากภูมิวิทยาคม</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font (Sarabun) -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+        @media print {
+            body { background: white; }
+            .no-print { display: none !important; }
+            .print-shadow { box-shadow: none !important; border: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between" id="app">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="bg-amber-500 text-blue-950 font-bold w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-md">BNP</div>
+                <h1 class="text-xl font-bold text-blue-950">โรงเรียนบางมูลนากภูมิวิทยาคม</h1>
+                <p class="text-xs text-slate-500">ระบบเช็คชื่อการเข้าแถวหน้าเสาธงออนไลน์</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกชื่อผู้ใช้งาน / ครูที่ปรึกษา / แอดมิน</label>
+                    <select id="login-user-select" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm w-full bg-white focus:ring-2 focus:ring-blue-500">
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสผ่านเข้าสู่ระบบ</label>
+                    <input type="password" id="login-password-input" placeholder="กรอกรหัสผ่านของคุณ" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm w-full focus:ring-2 focus:ring-blue-500 tracking-widest">
+                    <p id="login-error-msg" class="text-xs text-rose-600 mt-1 hidden">รหัสผ่านไม่ถูกต้อง!</p>
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-medium py-2.5 rounded-lg transition shadow">
+                    🔑 เข้าสู่ระบบ
+                </button>
+            </div>
+            <div class="text-center text-xs text-slate-400 pt-2 border-t border-slate-100">
+                <p>โรงเรียนบางมูลนากภูมิวิทยาคม © 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-blue-900 text-white shadow-md no-print">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-500 text-blue-950 font-bold p-2.5 rounded-lg shadow text-xl">BNP</div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">โรงเรียนบางมูลนากภูมิวิทยาคม</h1>
+                    <p class="text-xs text-blue-200">ระบบเช็คชื่อนักเรียนหน้าเสาธงออนไลน์</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 bg-blue-950/50 px-4 py-2 rounded-lg border border-blue-800">
+                <div>
+                    <p class="text-xs text-slate-300">ผู้ใช้งานระบบปัจจุบัน:</p>
+                    <p class="text-sm font-semibold text-amber-400" id="current-user-display">-</p>
+                </div>
+                <button onclick="handleLogout()" class="ml-2 bg-rose-700 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded transition font-medium">
+                    ออกจากระบบ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-grow">
+        
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-200 mb-6 gap-2 overflow-x-auto no-print">
+            <button onclick="switchTab('checkin')" id="tab-btn-checkin" class="tab-btn px-5 py-2.5 font-medium text-sm border-b-2 border-blue-900 text-blue-900 bg-white rounded-t-lg transition">
+                📝 บันทึกเช็คชื่อทุกห้อง
+            </button>
+            <button onclick="switchTab('summary')" id="tab-btn-summary" class="tab-btn px-5 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+                📊 สรุปผลรายวัน / ส่งออก PDF
+            </button>
+            <button onclick="switchTab('admin')" id="tab-btn-admin" class="tab-btn px-5 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition hidden">
+                ⚙️ จัดการระบบ (Admin)
+            </button>
+        </div>
+
+        <!-- TAB 1: Check-in -->
+        <section id="tab-checkin" class="tab-content space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">บันทึกการเข้าแถวหน้าเสาธง (ครูที่ปรึกษาทุกห้องเรียน)</h2>
+                    <p class="text-sm text-slate-500">เลือกวันที่และทำการเช็คชื่อครูที่ปรึกษาทุกห้องได้ในตารางเดียว (สิทธิบันทึกเฉพาะ Admin เท่านั้น)</p>
+                </div>
+                <div class="flex flex-wrap gap-3 w-full md:w-auto">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">วันที่เช็คชื่อ</label>
+                        <input type="date" id="checkin-date" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" onchange="loadAttendanceData()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Teachers List Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="font-semibold text-slate-700 text-sm" id="class-title-header">รายชื่อครูที่ปรึกษาทุกห้องเรียน</h3>
+                    <div class="flex gap-2 no-print" id="mark-all-container">
+                        <button onclick="markAll('มา')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs px-3 py-1.5 rounded font-medium border border-emerald-200 transition">มาทั้งหมด</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                <th class="p-3.5 pl-6">ห้องเรียน</th>
+                                <th class="p-3.5">รายชื่อครูที่ปรึกษา</th>
+                                <th class="p-3.5 text-center">สถานะการเข้าแถวหน้าเสาธง</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-attendance-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                    <p id="permission-warning" class="text-xs text-rose-600 font-medium hidden">⚠️ บัญชีของคุณเป็นแบบอ่านอย่างเดียว ไม่สามารถบันทึกข้อมูลได้ (ต้องใช้สิทธิ Admin เท่านั้น)</p>
+                    <button id="save-attendance-btn" onclick="saveAttendance()" class="ml-auto bg-blue-900 hover:bg-blue-800 text-white font-medium px-6 py-2.5 rounded-lg shadow transition text-sm flex items-center gap-2">
+                        💾 บันทึกข้อมูลการเช็คชื่อทั้งหมด
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: Summary & Export -->
+        <section id="tab-summary" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">สรุปผลการเข้าแถวหน้าเสาธง (รายบุคคล)</h2>
+                    <p class="text-sm text-slate-500">รายงานสถิติแยกตามจำนวนคนและส่งออกข้อมูลเป็น PDF</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกวันที่ดูรายงาน</label>
+                        <input type="date" id="summary-date" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="renderSummary()">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                            🖨️ พิมพ์ / บันทึก PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Printable Report Area -->
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 print-shadow space-y-6">
+                <div class="text-center border-b border-slate-200 pb-4">
+                    <h2 class="text-xl font-bold text-blue-950">โรงเรียนบางมูลนากภูมิวิทยาคม</h2>
+                    <p class="text-sm text-slate-600">รายงานสรุปผลการเข้าแถวหน้าเสาธง (รายบุคคล) ประจำวันที่ <span id="report-date-str">-</span></p>
+                </div>
+
+                <!-- Stats Cards (Count as Persons) -->
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+                        <p class="text-xs text-emerald-600 font-medium">มา (คน)</p>
+                        <p class="text-2xl font-bold text-emerald-700 mt-1" id="stat-ma">0</p>
+                    </div>
+                    <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl text-center">
+                        <p class="text-xs text-rose-600 font-medium">ขาด (คน)</p>
+                        <p class="text-2xl font-bold text-rose-700 mt-1" id="stat-khaad">0</p>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl text-center">
+                        <p class="text-xs text-amber-600 font-medium">ลา (คน)</p>
+                        <p class="text-2xl font-bold text-amber-700 mt-1" id="stat-la">0</p>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center">
+                        <p class="text-xs text-blue-600 font-medium">มาสาย (คน)</p>
+                        <p class="text-2xl font-bold text-blue-700 mt-1" id="stat-masay">0</p>
+                    </div>
+                    <div class="bg-purple-50 border border-purple-200 p-4 rounded-xl col-span-2 sm:col-span-1 text-center">
+                        <p class="text-xs text-purple-600 font-medium">สอนพิเศษ (คน)</p>
+                        <p class="text-2xl font-bold text-purple-700 mt-1" id="stat-special">0</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Summary Table (All Teachers Listed Individually) -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse border border-slate-200 text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs uppercase">
+                                <th class="border border-slate-200 p-3 pl-4">ลำดับ</th>
+                                <th class="border border-slate-200 p-3">ห้องเรียน</th>
+                                <th class="border border-slate-200 p-3">ชื่อ - สกุล ครูที่ปรึกษา</th>
+                                <th class="border border-slate-200 p-3 text-center">สถานะการเข้าแถว</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summary-table-tbody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: Admin Management -->
+        <section id="tab-admin" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800">จัดการข้อมูลผู้ใช้และกำหนดรหัสผ่าน (Admin)</h2>
+                <p class="text-sm text-slate-500">เพิ่ม/ลบ ครูที่ปรึกษา กำหนดห้องเรียน และตั้งรหัสผ่านสำหรับเข้าสู่ระบบ</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4 max-w-2xl mx-auto">
+                <h3 class="font-bold text-slate-700 text-base border-b pb-2">➕ เพิ่มผู้ใช้งานระบบ / ครูที่ปรึกษา</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อ-นามสกุล ครู</label>
+                        <input type="text" id="new-user-name" placeholder="เช่น อ.สมชาย ใจดี" class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">สิทธิการใช้งาน</label>
+                            <select id="new-user-role" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white w-full">
+                                <option value="Advisor">ครูที่ปรึกษา</option>
+                                <option value="Admin">แอดมินระบบ</option>
+                                <option value="Viewer">ผู้บริหาร/ทั่วไป (Viewer)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">ห้องเรียนที่รับผิดชอบ</label>
+                            <input type="text" id="new-user-class" placeholder="เช่น ม.1/1" class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">กำหนดรหัสผ่าน</label>
+                            <input type="password" id="new-user-pass" placeholder="รหัสผ่านเข้าใช้งาน" class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button onclick="addUser()" class="w-full bg-blue-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition shadow-sm">บันทึกเพิ่มผู้ใช้งาน</button>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100">
+                    <h4 class="font-bold text-slate-700 text-sm mb-3">📋 รายชื่อผู้ใช้งานทั้งหมดในระบบ</h4>
+                    <div class="overflow-x-auto max-h-60 overflow-y-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-left text-sm">
+                            <tbody id="admin-user-tbody" class="divide-y divide-slate-100">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500 no-print">
+        <p>โรงเรียนบางมูลนากภูมิวิทยาคม อำเภอบางมูลนาก จังหวัดพิจิตร</p>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        const CURRENT_DB_VERSION = "v2.70"; 
+        const ADMIN_DEFAULT_PASS = "Areerat25692569";
+
+        if (localStorage.getItem('bnp_db_ver') !== CURRENT_DB_VERSION) {
+            localStorage.clear();
+            localStorage.setItem('bnp_db_ver', CURRENT_DB_VERSION);
+        }
+
+        const defaultUsers = [
+            { id: 1, name: "อารีรัตน์ เถาสมบูรณ์", role: "Admin", classRoom: "-", pass: ADMIN_DEFAULT_PASS },
+            { id: 2, name: "ท่านผู้อำนวยการ (ผู้บริหาร)", role: "Viewer", classRoom: "-", pass: "1234" },
+            { id: 3, name: "อ.วิไล รักเรียน", role: "Advisor", classRoom: "ม.1/1", pass: "1234" },
+            { id: 4, name: "อ.ประเสริฐ สอนดี", role: "Advisor", classRoom: "ม.1/2", pass: "1234" }
+        ];
+
+        function generateDefaultTeachers() {
+            let teachers = [];
+            const users = JSON.parse(localStorage.getItem('bnp_users')) || defaultUsers;
+            users.filter(u => u.role === 'Advisor').forEach((u) => {
+                const cls = u.classRoom;
+                teachers.push({
+                    id: `t-${u.id}`,
+                    classRoom: cls,
+                    name: u.name
+                });
+            });
+            return teachers;
+        }
+
+        if (!localStorage.getItem('bnp_users')) localStorage.setItem('bnp_users', JSON.stringify(defaultUsers));
+        if (!localStorage.getItem('bnp_teachers')) localStorage.setItem('bnp_teachers', JSON.stringify(generateDefaultTeachers()));
+        if (!localStorage.getItem('bnp_attendance')) localStorage.setItem('bnp_attendance', JSON.stringify({})); 
+
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('checkin-date').value = today;
+            document.getElementById('summary-date').value = today;
+            
+            populateLoginDropdown();
+        });
+
+        function populateLoginDropdown() {
+            const users = JSON.parse(localStorage.getItem('bnp_users'));
+            const select = document.getElementById('login-user-select');
+            select.innerHTML = '';
+            users.forEach(u => {
+                select.innerHTML += `<option value="${u.id}">${u.name} (${u.role === 'Admin' ? 'แอดมิน' : u.role === 'Advisor' ? 'ครูที่ปรึกษา ' + u.classRoom : 'ผู้บริหาร/ทั่วไป'})</option>`;
+            });
+        }
+
+        function handleLogin() {
+            const userId = document.getElementById('login-user-select').value;
+            const inputPass = document.getElementById('login-password-input').value;
+            const users = JSON.parse(localStorage.getItem('bnp_users'));
+            const user = users.find(u => u.id == userId);
+
+            if (user && user.pass === inputPass) {
+                currentUser = user;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('login-error-msg').classList.add('hidden');
+                document.getElementById('login-password-input').value = '';
+                
+                updateUserDisplay();
+                loadAttendanceData();
+                renderSummary();
+                renderAdminData();
+            } else {
+                document.getElementById('login-error-msg').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('login-screen').classList.remove('hidden');
+            populateLoginDropdown();
+        }
+
+        function updateUserDisplay() {
+            if (!currentUser) return;
+            document.getElementById('current-user-display').innerText = `${currentUser.name} (${currentUser.role === 'Admin' ? 'แอดมิน' : currentUser.role === 'Advisor' ? 'ครูที่ปรึกษา ' + currentUser.classRoom : 'ผู้บริหาร/ทั่วไป'})`;
+            
+            const adminTabBtn = document.getElementById('tab-btn-admin');
+            const saveBtn = document.getElementById('save-attendance-btn');
+            const markAllContainer = document.getElementById('mark-all-container');
+            const permissionWarning = document.getElementById('permission-warning');
+
+            if (currentUser.role === 'Admin') {
+                adminTabBtn.classList.remove('hidden');
+                saveBtn.style.display = 'flex';
+                markAllContainer.style.display = 'flex';
+                permissionWarning.classList.add('hidden');
+            } else {
+                adminTabBtn.classList.add('hidden');
+                saveBtn.style.display = 'none';
+                markAllContainer.style.display = 'none';
+                permissionWarning.classList.remove('hidden');
+                if(document.getElementById('tab-admin').classList.contains('hidden') === false) {
+                    switchTab('checkin');
+                }
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-blue-900', 'text-blue-900', 'bg-white');
+                el.classList.add('border-transparent', 'text-slate-500');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            activeBtn.classList.add('border-blue-900', 'text-blue-900', 'bg-white');
+            activeBtn.classList.remove('border-transparent', 'text-slate-500');
+
+            if(tabId === 'summary') renderSummary();
+            if(tabId === 'admin') renderAdminData();
+        }
+
+        function loadAttendanceData() {
+            const date = document.getElementById('checkin-date').value;
+            
+            syncTeachersFromUsers();
+            const teachers = JSON.parse(localStorage.getItem('bnp_teachers'));
+            const attendance = JSON.parse(localStorage.getItem('bnp_attendance'));
+            const key = `${date}_all`;
+            const record = attendance[key] || {};
+
+            document.getElementById('class-title-header').innerText = `รายชื่อครูที่ปรึกษาทุกห้องเรียน (รวมทั้งหมด ${teachers.length} คน)`;
+            
+            const tbody = document.getElementById('student-attendance-tbody');
+            tbody.innerHTML = '';
+
+            if(teachers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-400">ไม่พบข้อมูลครูที่ปรึกษาในระบบ</td></tr>`;
+                return;
+            }
+
+            const isAdmin = currentUser && currentUser.role === 'Admin';
+
+            teachers.forEach((t) => {
+                const status = record[t.id] || 'มา'; 
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3.5 pl-6 font-semibold text-blue-950">${t.classRoom}</td>
+                        <td class="p-3.5 font-medium text-slate-800">${t.name}</td>
+                        <td class="p-3.5">
+                            <div class="flex justify-center gap-2 flex-wrap">
+                                ${['มา', 'ขาด', 'ลา', 'มาสาย', 'สอนห้องเรียนพิเศษ'].map(st => `
+                                    <label class="px-3 py-1 rounded-lg text-xs font-medium ${isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'} border transition ${getStatusStyle(status, st)}">
+                                        <input type="radio" name="status_${t.id}" value="${st}" ${status === st ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''} class="hidden" onchange="updateRadioStyle(this)">
+                                        ${st}
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function syncTeachersFromUsers() {
+            const users = JSON.parse(localStorage.getItem('bnp_users')) || [];
+            let teachers = [];
+            users.filter(u => u.role === 'Advisor').forEach(u => {
+                const cls = u.classRoom || 'ม.1/1';
+                teachers.push({
+                    id: `t-${u.id}`,
+                    classRoom: cls,
+                    name: u.name
+                });
+            });
+            localStorage.setItem('bnp_teachers', JSON.stringify(teachers));
+        }
+
+        function getStatusStyle(current, target) {
+            if (current !== target) return 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100';
+            switch(target) {
+                case 'มา': return 'bg-emerald-600 border-emerald-600 text-white shadow-sm';
+                case 'ขาด': return 'bg-rose-600 border-rose-600 text-white shadow-sm';
+                case 'ลา': return 'bg-amber-500 border-amber-500 text-white shadow-sm';
+                case 'มาสาย': return 'bg-blue-600 border-blue-600 text-white shadow-sm';
+                case 'สอนห้องเรียนพิเศษ': return 'bg-purple-600 border-purple-600 text-white shadow-sm';
+                default: return 'bg-slate-600 text-white';
+            }
+        }
+
+        function updateRadioStyle(radio) {
+            const parentTd = radio.closest('td');
+            parentTd.querySelectorAll('label').forEach(lbl => {
+                const val = lbl.querySelector('input').value;
+                lbl.className = `px-3 py-1 rounded-lg text-xs font-medium cursor-pointer border transition ${getStatusStyle(radio.value, val)}`;
+            });
+        }
+
+        function markAll(statusVal) {
+            if(!currentUser || currentUser.role !== 'Admin') return;
+            document.querySelectorAll('#student-attendance-tbody tr').forEach(row => {
+                const radio = row.querySelector(`input[value="${statusVal}"]`);
+                if(radio) {
+                    radio.checked = true;
+                    updateRadioStyle(radio);
+                }
+            });
+        }
+
+        function saveAttendance() {
+            if(!currentUser || currentUser.role !== 'Admin') {
+                alert('ไม่อนุญาตให้บันทึกข้อมูล เฉพาะ Admin เท่านั้น!');
+                return;
+            }
+
+            const date = document.getElementById('checkin-date').value;
+            const teachers = JSON.parse(localStorage.getItem('bnp_teachers'));
+            const attendance = JSON.parse(localStorage.getItem('bnp_attendance'));
+            const key = `${date}_all`;
+
+            if(!attendance[key]) attendance[key] = {};
+
+            teachers.forEach(t => {
+                const checkedRadio = document.querySelector(`input[name="status_${t.id}"]:checked`);
+                if(checkedRadio) {
+                    attendance[key][t.id] = checkedRadio.value;
+                }
+            });
+
+            localStorage.setItem('bnp_attendance', JSON.stringify(attendance));
+            alert('บันทึกข้อมูลการเช็คชื่อทุกห้องสำเร็จ!');
+            renderSummary();
+        }
+
+        function renderSummary() {
+            const date = document.getElementById('summary-date').value;
+            document.getElementById('report-date-str').innerText = date;
+
+            syncTeachersFromUsers();
+            const teachers = JSON.parse(localStorage.getItem('bnp_teachers'));
+            const attendance = JSON.parse(localStorage.getItem('bnp_attendance'));
+            const key = `${date}_all`;
+            const record = attendance[key] || {};
+
+            let countMa = 0, countKhaad = 0, countLa = 0, countMasay = 0, countSpecial = 0;
+            const tbody = document.getElementById('summary-table-tbody');
+            tbody.innerHTML = '';
+
+            if(teachers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">ไม่พบข้อมูลครูที่ปรึกษาในระบบ</td></tr>`;
+                return;
+            }
+
+            teachers.forEach((t, idx) => {
+                const status = record[t.id] || 'มา'; // Default to 'มา' if not explicitly recorded yet
+                
+                if(status === 'มา') countMa++;
+                else if(status === 'ขาด') countKhaad++;
+                else if(status === 'ลา') countLa++;
+                else if(status === 'มาสาย') countMasay++;
+                else if(status === 'สอนห้องเรียนพิเศษ') countSpecial++;
+
+                let badgeClass = 'bg-slate-100 text-slate-700';
+                if(status === 'มา') badgeClass = 'bg-emerald-100 text-emerald-800';
+                else if(status === 'ขาด') badgeClass = 'bg-rose-100 text-rose-800';
+                else if(status === 'ลา') badgeClass = 'bg-amber-100 text-amber-800';
+                else if(status === 'มาสาย') badgeClass = 'bg-blue-100 text-blue-800';
+                else if(status === 'สอนห้องเรียนพิเศษ') badgeClass = 'bg-purple-100 text-purple-800';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="border border-slate-200 p-3 pl-4 text-slate-500">${idx + 1}</td>
+                        <td class="border border-slate-200 p-3 font-semibold text-blue-950">${t.classRoom}</td>
+                        <td class="border border-slate-200 p-3 font-medium text-slate-800">${t.name}</td>
+                        <td class="border border-slate-200 p-3 text-center">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}">${status}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('stat-ma').innerText = countMa;
+            document.getElementById('stat-khaad').innerText = countKhaad;
+            document.getElementById('stat-la').innerText = countLa;
+            document.getElementById('stat-masay').innerText = countMasay;
+            document.getElementById('stat-special').innerText = countSpecial;
+        }
+
+        function renderAdminData() {
+            const users = JSON.parse(localStorage.getItem('bnp_users'));
+            const userTbody = document.getElementById('admin-user-tbody');
+            userTbody.innerHTML = '';
+            
+            users.forEach(u => {
+                userTbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">
+                            <p class="font-medium text-slate-800">${u.name}</p>
+                            <p class="text-xs text-slate-500">สิทธิ: <span class="text-blue-600 font-semibold">${u.role}</span> | ห้องรับผิดชอบ: ${u.classRoom}</p>
+                        </td>
+                        <td class="p-3 text-right">
+                            <button onclick="removeUser(${u.id})" class="text-rose-600 hover:text-rose-800 text-xs font-medium bg-rose-50 px-2.5 py-1 rounded border border-rose-200 transition">ลบ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function addUser() {
+            const name = document.getElementById('new-user-name').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            let classRoom = document.getElementById('new-user-class').value.trim();
+            const pass = document.getElementById('new-user-pass').value.trim();
+            
+            if(!name) { alert('กรุณากรอกชื่อ-นามสกุลครู'); return; }
+            if(!pass) { alert('กรุณากำหนดรหัสผ่านเข้าใช้งาน'); return; }
+            if(role === 'Advisor' && !classRoom) { alert('กรุณากรอกห้องเรียนที่รับผิดชอบ (เช่น ม.1/1)'); return; }
+            if(role !== 'Advisor') classRoom = '-';
+
+            let users = JSON.parse(localStorage.getItem('bnp_users'));
+            const newUser = { id: Date.now(), name, role, classRoom, pass };
+            users.push(newUser);
+            localStorage.setItem('bnp_users', JSON.stringify(users));
+            
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-class').value = '';
+            document.getElementById('new-user-pass').value = '';
+            
+            syncTeachersFromUsers();
+            loadAttendanceData();
+            renderAdminData();
+            alert('เพิ่มผู้ใช้งานและกำหนดรหัสผ่านสำเร็จ!');
+        }
+
+        function removeUser(id) {
+            let users = JSON.parse(localStorage.getItem('bnp_users'));
+            if(users.length <= 1) { alert('ไม่สามารถลบผู้ใช้งานทั้งหมดได้'); return; }
+            if(!confirm('ต้องการลบผู้ใช้งานนี้หรือไม่?')) return;
+
+            users = users.filter(u => u.id !== id);
+            localStorage.setItem('bnp_users', JSON.stringify(users));
+            
+            syncTeachersFromUsers();
+            loadAttendanceData();
+            renderAdminData();
+        }
+    </script>
+</body>
+</html>
